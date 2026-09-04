@@ -1,0 +1,18 @@
+[
+  {
+    "id": 1,
+    "nome": "bola",
+    "preco": 99.99,
+    "updatedAt": "2026-09-04T17:25:49.327Z"
+  },
+  {
+    "id": 2,
+    "nome": "bola",
+    "preco": 23
+  },
+  {
+    "id": 3,
+    "nome": "bola",
+    "preco": 34
+  }
+]
