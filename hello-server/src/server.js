@@ -278,9 +278,18 @@ app.delete('/produtos/:id', async (req, res) => {
 /* Soft delete */
 app.delete('/produtos/:id', async (req, res) => {
   const id = Number(req.params.id)
+  const force = req.query.force
   const products = await readProducts()
   const product = products.find(p => p.id === id)
+  const idx = products.findIndex(p => p.id === id)
   if (!product) return res.status(404).json({ erro: 'Produto não encontrado' })
+
+  if(force){
+    products.splice(idx, 1)              // remove do array
+  await writeProducts(products)
+  res.status(204).end()
+  }
+  
   if (product.deletedAt) return res.status(409).json({ erro: 'Já removido' })
 
   product.deletedAt = new Date().toISOString()  // marca remoção
