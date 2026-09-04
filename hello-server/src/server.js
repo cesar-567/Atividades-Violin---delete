@@ -260,6 +260,20 @@ app.patch('/users/:id/restore', async (req, res) => {
   res.json(user)
 })
 
+/* Deletes dos products */
+
+/* Hard delete */
+app.delete('/produtos/:id', async (req, res) => {
+  const id = Number(req.params.id)
+  const products = await readProducts()
+  const idx = products.findIndex(p => p.id === id)
+  if (idx === -1) return res.status(404).json({ erro: 'Produto não encontrado' })
+
+  products.splice(idx, 1)              // remove do array
+  await writeProducts(products)
+  res.status(204).end()            // 204 = sem conteúdo
+})
+
 
 
 //rodando o servidor
