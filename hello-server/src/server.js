@@ -85,7 +85,7 @@ app.get('/produtos', async (req, res) => {
   const min = req.query.min
 
   if(min === undefined){
-    res.json(produtos)
+    res.json(produtos.filter(p => !p.deletedAt))
   }
 
   const Produtosmin = produtos.filter(produto => produto.preco >= Number(min))
@@ -263,6 +263,7 @@ app.patch('/users/:id/restore', async (req, res) => {
 /* Deletes dos products */
 
 /* Hard delete */
+/*
 app.delete('/produtos/:id', async (req, res) => {
   const id = Number(req.params.id)
   const products = await readProducts()
@@ -273,7 +274,19 @@ app.delete('/produtos/:id', async (req, res) => {
   await writeProducts(products)
   res.status(204).end()            // 204 = sem conteúdo
 })
+*/
+/* Soft delete */
+app.delete('/produtos/:id', async (req, res) => {
+  const id = Number(req.params.id)
+  const products = await readProducts()
+  const product = products.find(p => p.id === id)
+  if (!product) return res.status(404).json({ erro: 'Produto não encontrado' })
+  if (product.deletedAt) return res.status(409).json({ erro: 'Já removido' })
 
+  product.deletedAt = new Date().toISOString()  // marca remoção
+  await writeProducts(products)
+  res.status(204).end()
+})
 
 
 //rodando o servidor
