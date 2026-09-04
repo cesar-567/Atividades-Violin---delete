@@ -27,7 +27,7 @@ app.get('/echo', (req, res) => {
 //involvendo usuarios
 app.get('/users', async (req, res) => {
   const users = await readUsers()
-  res.send(users)
+  res.json(users.filter(u => !u.deletedAt))   // só ativos
 })
 
 app.post('/users', async (req, res) => {
@@ -223,6 +223,7 @@ users hard delete e soft delete abaixo ->
 */ 
 
 /*hard delete*/
+/*
 app.delete('/users/:id', async (req, res) => {
   const id = Number(req.params.id)
   const users = await readUsers()
@@ -233,9 +234,31 @@ app.delete('/users/:id', async (req, res) => {
   await writeUsers(users)
   res.status(204).end()            // 204 = sem conteúdo
 })
+*/
 
 /* soft delete */
-/* Não adicionado ainda */
+app.delete('/users/:id', async (req, res) => {
+  const id = Number(req.params.id)
+  const users = await readUsers()
+  const user = users.find(u => u.id === id)
+  if (!user) return res.status(404).json({ erro: 'Usuário não encontrado' })
+  if (user.deletedAt) return res.status(409).json({ erro: 'Já removido' })
+
+  user.deletedAt = new Date().toISOString()  // marca remoção
+  await writeUsers(users)
+  res.status(204).end()
+})
+
+/* Restaurar */
+app.patch('/users/:id/restore', async (req, res) => {
+  const id = Number(req.params.id)
+  const users = await readUsers()
+  const user = users.find(u => u.id === id)
+  if (!user) return res.status(404).json({ erro: 'Não encontrado' })
+  user.deletedAt = null
+  await writeUsers(users)
+  res.json(user)
+})
 
 
 
