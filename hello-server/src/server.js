@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import express from 'express';
 import { readProducts, readUsers } from './db.js'
 import { writeUsers, writeProducts } from "./db.js";
+import { findAll, findById, create, update, remove, patch, restore } from '../services/users.js'
 
 app.use(express.json())   // habilita req.body como JSON
 
@@ -24,39 +25,22 @@ app.get('/echo', (req, res) => {
     res.send(req.query)
 })
 
+function nextId(users) {
+  return users.length ? Math.max(...users.map(u => u.id)) + 1 : 1
+}
+
 //involvendo usuarios
 app.get('/users', async (req, res) => {
   const users = await readUsers()
-  res.json(users.filter(u => !u.deletedAt))   // só ativos
+  res.json(findAll(users))
 })
 
 app.post('/users', async (req, res) => {
-  const { nome, email } = req.body || {}
   const users = await readUsers()
-
-  // validação simples
-  if (!nome || typeof nome !== 'string') {
-    return res.status(400).json({ erro: 'nome é obrigatório' })
-  }
-  if (!email || !email.includes('@')) {
-    return res.status(400).json({ erro: 'email inválido' })
-  }
-
-  const emailDuplicado = users.some(
-    (u) => u.email.toLowerCase() === email.toLowerCase()
-  )
-  if(emailDuplicado){
-    return res.status(409).json({ erro: `o email ${email} já está cadastrado` })
-  }
-  
-  const novoId = users.length ? Math.max(...users.map(u => u.id)) + 1 : 1
-
-  const novo = { id: novoId, nome, email }
-  users.push(novo)
-  await writeUsers(users)
-
-  // 201 Created + recurso no body
-  res.status(201).json(novo)
+  const result = create(users, req.body)
+  if (!result.ok) return res.status(400).json({ erro: result.erro })
+  await writeUsers(result.users)
+  res.status(201).json(result.data)
 })
 
 app.post('/produtos', async (req, res)=>{
@@ -103,50 +87,19 @@ app.get('/produtos/:id', async (req, res) => {
 })
 
 app.put('/users/:id', async (req, res) => {
-  // 1. params vem SEMPRE como string → converter para number
-  const id = Number(req.params.id)
-  
-  // 2. PUT exige TODOS os campos obrigatórios no body
-  const { nome, email } = req.body || {}
-
-  if (!nome || !email) {
-    return res.status(400).json({ 
-      erro: 'nome e email são obrigatórios para PUT (substituição completa)' 
-    })
-  }
-
-  // 3. Busca o índice (não o objeto) para poder substituir no array
   const users = await readUsers()
-  const idx = users.findIndex(u => u.id === id)
-  if (idx === -1) return res.status(404).json({ erro: 'Usuário não encontrado' })
-
-  // 4. SUBSTITUI o objeto inteiro — mantém id da URL, descarta o do body
-  users[idx] = { id, nome, email }
-  
-  // 5. Persiste e responde com recurso atualizado
-  await writeUsers(users)
-  res.json(users[idx])  // 200 OK
+  const result = update(users, req.params.id, req.body)
+  if (!result.ok) return res.status(result.status).json({ erro: result.erro })
+  await writeUsers(result.users)
+  res.json(result.data)
 })
 
 app.patch('/users/:id', async (req, res) => {
-  const id = Number(req.params.id)
   const users = await readUsers()
-  const user = users.find(u => u.id === id)
-  if (!user) return res.status(404).json({ erro: 'Usuário não encontrado' })
-
-  // PERIGO: Object.assign MUTA o objeto alvo in-place
-  // Se req.body vier { id: 999, email: "x@x.com" } → user.id vira 999!
-  // Object.assign(user, req.body || {})
-  
-  // CORRETO: filtrar campos sensíveis ANTES do merge
-  const { id: _, createdAt: __, updatedAt: ___, ...dadosPermitidos } = req.body || {}
-  Object.assign(user, dadosPermitidos)
-  
-  // Opcional: updatedAt automático
-  user.updatedAt = new Date().toISOString()
-  
-  await writeUsers(users)
-  res.json(user)  // 200 OK com recurso mesclado
+  const result = patch(users, req.params.id, req.body)
+  if (!result.ok) return res.status(result.status).json({ erro: result.erro })
+  await writeUsers(result.users)
+  res.json(result.data)
 })
 
 
@@ -238,26 +191,20 @@ app.delete('/users/:id', async (req, res) => {
 
 /* soft delete */
 app.delete('/users/:id', async (req, res) => {
-  const id = Number(req.params.id)
   const users = await readUsers()
-  const user = users.find(u => u.id === id)
-  if (!user) return res.status(404).json({ erro: 'Usuário não encontrado' })
-  if (user.deletedAt) return res.status(409).json({ erro: 'Já removido' })
-
-  user.deletedAt = new Date().toISOString()  // marca remoção
-  await writeUsers(users)
+  const result = remove(users, req.params.id)
+  if (!result.ok) return res.status(result.status).json({ erro: result.erro })
+  await writeUsers(result.users)
   res.status(204).end()
 })
 
 /* Restaurar */
 app.patch('/users/:id/restore', async (req, res) => {
-  const id = Number(req.params.id)
   const users = await readUsers()
-  const user = users.find(u => u.id === id)
-  if (!user) return res.status(404).json({ erro: 'Não encontrado' })
-  user.deletedAt = null
-  await writeUsers(users)
-  res.json(user)
+  const result = restore(users, req.params.id)
+  if (!result.ok) return res.status(result.status).json({ erro: result.erro })
+  await writeUsers(result.users)
+  res.json(result.data)
 })
 
 /* Deletes dos products */
