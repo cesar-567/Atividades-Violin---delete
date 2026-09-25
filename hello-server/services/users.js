@@ -1,9 +1,12 @@
 // services/users.js
 
-function validateUserPayload(body) {
+import { json } from "express"
+
+function validateUserPayload(users, body) {
   const { nome, email } = body || {}
   if (!nome) return { ok: false, erro: 'nome é obrigatório' }
   if (!email || !email.includes('@')) return { ok: false, erro: 'email inválido' }
+  if (users.some(user => user.email === email))return {ok: false, erro: 'email já existente'}
   return { ok: true, data: { nome, email } }
 }
 
@@ -23,7 +26,7 @@ function findById(users, id) {
 
 // Cria um novo usuário. Retorna { ok, erro? , data?, users? }
 function create(users, payload) {
-  const valid = validateUserPayload(payload)
+  const valid = validateUserPayload(users, payload)
   if (!valid.ok) return { ok: false, erro: valid.erro }
 
   const novo = { id: nextId(users), ...valid.data }
